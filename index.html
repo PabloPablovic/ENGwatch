@@ -615,7 +615,8 @@ function speak(text, done){
 }
 
 // ---------- speech input: Vosk (offline, restricted to valid time phrases) ----------
-var MODEL_URL="vosk-model-small-en-us-0.15.tar.gz";
+var MODEL_FILE="vosk-model-small-en-us-0.15.tar.gz";
+var MODEL_URL=new URL(MODEL_FILE, location.href).href; // absolute: the loader runs in a worker
 var modelPromise=null, vModel=null, vRec=null, vCtx=null, vStream=null, vNode=null, vSrc=null;
 var listening=false, listenTimer=null, heardSomething=false;
 var micLabelDefault=$("micLabel").innerHTML;
@@ -629,9 +630,19 @@ function grammarJSON(){
 }
 function getModel(){
   if(!modelPromise){
-    micMsg("Načítavam rozpoznávač…","Prvýkrát to trvá niekoľko sekúnd.");
-    modelPromise=Vosk.createModel(MODEL_URL).then(function(m){ vModel=m; return m; },
-      function(e){ modelPromise=null; var err=new Error("model"); err.cause=e; throw err; });
+    micMsg("Načítavam rozpoznávač…","Prvýkrát sa sťahuje asi 40 MB, môže to trvať minútu.");
+    modelPromise=new Promise(function(resolve, reject){
+      var m, done=false;
+      function fail(text){ if(done) return; done=true; modelPromise=null; var err=new Error("model"); err.detail=text; reject(err); }
+      var timer=setTimeout(function(){ fail("Model sa nenačítal do 3 minút (pomalé pripojenie alebo zablokovaný súbor)."); }, 180000);
+      try{ m=new Vosk.Model(MODEL_URL); }catch(e){ clearTimeout(timer); fail(String(e && e.message || e)); return; }
+      m.on("load", function(msg){
+        clearTimeout(timer);
+        if(msg.result){ if(done) return; done=true; vModel=m; resolve(m); }
+        else fail("Model sa nepodarilo rozbaliť (poškodený alebo zlý formát súboru).");
+      });
+      m.on("error", function(msg){ clearTimeout(timer); fail(String(msg && msg.error || "neznáma chyba")); });
+    });
   }
   return modelPromise;
 }
@@ -693,7 +704,7 @@ function startListening(){
   }).catch(function(e){
     $("micLabel").innerHTML=micLabelDefault;
     if(e && e.message==="model")
-      show("mid","Model sa nenašiel",["Ulož súbor <b>"+MODEL_URL+"</b> do rovnakého priečinka ako túto stránku a otvor ju cez <b>http://localhost</b>, nie dvojklikom."],null);
+      show("mid","Model sa nenačítal",["Chyba: <b>"+esc(e.detail||"")+"</b>","Adresa modelu: "+esc(MODEL_URL),"Súbor <b>"+MODEL_FILE+"</b> musí byť v rovnakom priečinku ako stránka a stránka musí bežať cez http(s), nie dvojklikom."],null);
     else if(e && (e.name==="NotAllowedError"||e.name==="SecurityError"))
       show("mid","Mikrofón je zablokovaný",["Povoľ mikrofón v prehliadači (ikona vľavo v adresnom riadku)."],null);
     else show("mid","Mikrofón sa nespustil",[esc(e && (e.message||e.name)||"neznáma chyba")],null);

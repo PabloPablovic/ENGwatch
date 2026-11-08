@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="sk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>Počítanie do 100</title>
+<style>
+  :root {
+    --bg: #f4f6fa; --panel: #ffffff; --ink: #1d2433; --muted: #7a8396; --line: #c9d0dc;
+    --yellow: #ffe94d; --green: #36c56a; --red: #ff4d4d; --blue: #2f6fec;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink);
+    font-family: "Segoe UI", Calibri, Arial, sans-serif; user-select: none; -webkit-user-select: none;
+    touch-action: manipulation; overflow: hidden; }
+  button { font: inherit; cursor: pointer; touch-action: manipulation; }
+
+  /* ---------- hra ---------- */
+  #game { display: grid; height: 100vh; padding: 1.5vh 2vw; gap: 1.5vh 2vw;
+    grid-template-columns: minmax(0, 1fr) 34vw; grid-template-rows: minmax(0, 1fr) auto; }
+  #grid { display: grid; grid-template-columns: repeat(10, 1fr); grid-template-rows: repeat(10, 1fr);
+    gap: 0; border: 2px solid var(--ink); background: var(--panel); aspect-ratio: 1 / 1;
+    max-height: 100%; max-width: 100%; justify-self: center; align-self: center; height: 100%; }
+  .cell { display: flex; align-items: center; justify-content: center; border: 1px solid var(--line);
+    font-size: min(4.6vh, 3.6vw); font-weight: 500; transition: background .08s; }
+  .cell.op { background: var(--yellow); }
+  .cell.bad { background: var(--red); color: #fff; }
+  .cell.good { background: var(--green); color: #fff; }
+  .cell.show { box-shadow: inset 0 0 0 5px var(--green); }
+  #grid.idle .cell { color: var(--muted); }
+
+  #side { display: flex; flex-direction: column; gap: 2vh; min-height: 0; }
+  #task { flex: 1; display: flex; align-items: center; justify-content: center; background: var(--panel);
+    border-radius: 16px; font-size: min(13vh, 8vw); font-weight: 600; white-space: nowrap; letter-spacing: .03em; }
+  #task .q { color: var(--blue); }
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 2vh; }
+  .stat { background: var(--panel); border-radius: 16px; padding: 1.2vh 1vw; text-align: center; }
+  .stat small { display: block; color: var(--muted); font-size: 2.2vh; }
+  .stat b { font-size: 6vh; }
+  #ok { color: var(--green); } #nok { color: var(--red); }
+  #progress { color: var(--muted); font-size: 2.4vh; text-align: center; }
+  .btn { border: 0; border-radius: 14px; padding: 2vh 1vw; font-size: 3.4vh; font-weight: 600;
+    background: var(--blue); color: #fff; }
+  .btn.ghost { background: #e3e8f1; color: var(--ink); }
+  #barWrap { grid-column: 1 / -1; height: 2.4vh; background: #e3e8f1; border-radius: 99px; overflow: hidden; }
+  #bar { height: 100%; width: 0; background: var(--ink); border-radius: 99px; }
+  #bar.low { background: var(--red); }
+
+  /* telefón / tablet na výšku: zadanie hore, mriežka pod ním */
+  @media (orientation: portrait) {
+    #game { grid-template-columns: 1fr; grid-template-rows: auto auto auto; align-content: start; padding: 1.5vh 2vw; }
+    #grid { width: min(96vw, 58vh); height: auto; }
+    #side { order: -1; display: grid; grid-template-columns: 1fr 1fr; gap: 1vh; }
+    #task { grid-column: 1 / -1; font-size: min(9vh, 13vw); padding: 1vh 0; }
+    .stats, #progress { grid-column: 1 / -1; gap: 1vh; }
+    .stat { padding: .5vh 1vw; }
+    .stat small { font-size: 1.6vh; }
+    .stat b { font-size: 3.6vh; }
+    #progress { font-size: 1.8vh; }
+    .btn { order: 5; font-size: 2.4vh; padding: 1.4vh 1vw; }
+    #barWrap { height: 1.6vh; }
+    .cell { font-size: min(3.8vh, 4.6vw); }
+  }
+
+  /* ---------- prekryvy ---------- */
+  .overlay { position: fixed; inset: 0; background: rgba(20, 26, 38, .55); display: flex;
+    align-items: center; justify-content: center; padding: 16px; }
+  .overlay[hidden] { display: none; }
+  .card { background: var(--panel); border-radius: 18px; padding: 24px 28px; width: min(900px, 100%);
+    max-height: 100%; overflow: auto; user-select: text; }
+  .card h2 { margin: 0 0 12px; }
+  fieldset { border: 1px solid var(--line); border-radius: 12px; margin: 0 0 12px; padding: 10px 14px; }
+  legend { font-weight: 600; padding: 0 6px; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; margin: 6px 0; }
+  .row label { display: flex; align-items: center; gap: 6px; }
+  input[type=number] { width: 4.5em; font: inherit; padding: 4px 6px; border: 1px solid var(--line); border-radius: 8px; }
+  input[type=checkbox] { width: 22px; height: 22px; }
+  .opgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px; }
+  .opgrid fieldset { margin: 0; }
+  .hint { color: var(--muted); font-size: .9em; }
+  .actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 14px; flex-wrap: wrap; }
+  .actions .btn { font-size: 20px; padding: 12px 22px; }
+  table { border-collapse: collapse; width: 100%; font-size: .95em; }
+  td, th { padding: 4px 8px; border-bottom: 1px solid var(--line); text-align: left; }
+  .big { font-size: 28px; margin: 6px 0 14px; }
+  .err { color: var(--red); font-weight: 600; }
+</style>
+</head>
+<body>
+
+<div id="game">
+  <div id="grid" class="idle"></div>
+  <div id="side">
+    <div id="task">—</div>
+    <div class="stats">
+      <div class="stat"><small>Správne</small><b id="ok">0</b></div>
+      <div class="stat"><small>Chyby</small><b id="nok">0</b></div>
+    </div>
+    <div id="progress">&nbsp;</div>
+    <button id="startBtn" class="btn">Štart</button>
+    <button id="setBtn" class="btn ghost">Nastavenia</button>
+  </div>
+  <div id="barWrap"><div id="bar"></div></div>
+</div>
+
+<!-- nastavenia -->
+<div id="settings" class="overlay" hidden>
+  <div class="card">
+    <h2>Nastavenia</h2>
+    <div class="opgrid">
+      <fieldset>
+        <legend><label><input type="checkbox" id="mulOn"> Násobenie ( . )</label></legend>
+        <div class="row">1. činiteľ od <input type="number" id="mulAmin"> do <input type="number" id="mulAmax"></div>
+        <div class="row">2. činiteľ od <input type="number" id="mulBmin"> do <input type="number" id="mulBmax"></div>
+        <div class="row"><label><input type="checkbox" id="mulSwap"> náhodne prehodiť poradie</label></div>
+      </fieldset>
+      <fieldset>
+        <legend><label><input type="checkbox" id="divOn"> Delenie ( : )</label></legend>
+        <div class="row">deliteľ od <input type="number" id="divDmin"> do <input type="number" id="divDmax"></div>
+        <div class="row">výsledok od <input type="number" id="divQmin"> do <input type="number" id="divQmax"></div>
+      </fieldset>
+      <fieldset>
+        <legend><label><input type="checkbox" id="addOn"> Sčítanie ( + )</label></legend>
+        <div class="row">sčítance od <input type="number" id="addMin"> do <input type="number" id="addMax"></div>
+        <div class="row"><label><input type="checkbox" id="addNoCarry"> bez prechodu cez desiatku</label></div>
+      </fieldset>
+      <fieldset>
+        <legend><label><input type="checkbox" id="subOn"> Odčítanie ( − )</label></legend>
+        <div class="row">čísla od <input type="number" id="subMin"> do <input type="number" id="subMax"></div>
+        <div class="row"><label><input type="checkbox" id="subNoCarry"> bez prechodu cez desiatku</label></div>
+      </fieldset>
+    </div>
+    <fieldset style="margin-top:12px">
+      <legend>Všeobecné</legend>
+      <div class="row">
+        <label>výsledok od <input type="number" id="resMin"> do <input type="number" id="resMax"></label>
+        <label>počet príkladov <input type="number" id="count"></label>
+        <label>čas na príklad (s) <input type="number" id="timeout"></label>
+      </div>
+      <div class="row">
+        <label><input type="checkbox" id="highlight"> vyznačiť čísla zo zadania (žltá)</label>
+        <label><input type="checkbox" id="showAnswer"> po vypršaní času ukázať správny výsledok</label>
+        <label><input type="checkbox" id="sound"> zvuky</label>
+      </div>
+      <div class="hint" id="poolInfo"></div>
+    </fieldset>
+    <fieldset>
+      <legend>Posledné výsledky</legend>
+      <div id="history" class="hint">zatiaľ žiadne</div>
+    </fieldset>
+    <div class="actions">
+      <button class="btn ghost" id="resetSet">Predvolené</button>
+      <button class="btn" id="saveSet">Uložiť</button>
+    </div>
+  </div>
+</div>
+
+<!-- koniec kola -->
+<div id="result" class="overlay" hidden>
+  <div class="card">
+    <h2>Hotovo! 🎉</h2>
+    <div class="big" id="resSummary"></div>
+    <div id="resMistakes"></div>
+    <div class="actions">
+      <button class="btn ghost" id="resClose">Zavrieť</button>
+      <button class="btn" id="resAgain">Znova</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const DEFAULTS = {
+  mulOn: true,  mulAmin: 2, mulAmax: 10, mulBmin: 2, mulBmax: 10, mulSwap: true,
+  divOn: true,  divDmin: 2, divDmax: 10, divQmin: 2, divQmax: 10,
+  addOn: false, addMin: 1, addMax: 99, addNoCarry: false,
+  subOn: false, subMin: 1, subMax: 100, subNoCarry: false,
+  resMin: 1, resMax: 100, count: 150, timeout: 35,
+  highlight: true, showAnswer: true, sound: true,
+};
+const $ = id => document.getElementById(id);
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+};
+let cfg = { ...DEFAULTS, ...store.get('matika.cfg', {}) };
+
+// ---------- mriežka ----------
+const cells = [];
+for (let n = 1; n <= 100; n++) {
+  const c = document.createElement('div');
+  c.className = 'cell'; c.textContent = n; c.dataset.n = n;
+  $('grid').appendChild(c); cells[n] = c;
+}
+const clearCells = () => cells.forEach(c => c && (c.className = 'cell'));
+const mark = (n, cls) => { if (n >= 1 && n <= 100) cells[n].classList.add(cls); };
+
+// ---------- generovanie príkladov ----------
+// Pre každú operáciu vyrobíme zoznam všetkých povolených príkladov a z neho losujeme,
+// takže sa nikdy nezacyklíme ako pri náhodnom skúšaní.
+function buildPools(c) {
+  const okRes = r => r >= Math.max(1, c.resMin) && r <= Math.min(100, c.resMax);
+  const range = (a, b) => { const out = []; for (let i = a; i <= b; i++) out.push(i); return out; };
+  const pools = [];
+  if (c.mulOn) {
+    const p = [];
+    for (const a of range(c.mulAmin, c.mulAmax)) for (const b of range(c.mulBmin, c.mulBmax))
+      if (okRes(a * b)) p.push({ a, b, op: '.', r: a * b, swap: c.mulSwap });
+    pools.push(p);
+  }
+  if (c.divOn) {
+    const p = [];
+    for (const d of range(Math.max(1, c.divDmin), c.divDmax)) for (const q of range(c.divQmin, c.divQmax))
+      if (d * q <= 100 && okRes(q)) p.push({ a: d * q, b: d, op: ':', r: q });
+    pools.push(p);
+  }
+  if (c.addOn) {
+    const p = [];
+    for (const a of range(c.addMin, c.addMax)) for (const b of range(c.addMin, c.addMax))
+      if (okRes(a + b) && !(c.addNoCarry && (a % 10) + (b % 10) >= 10)) p.push({ a, b, op: '+', r: a + b });
+    pools.push(p);
+  }
+  if (c.subOn) {
+    const p = [];
+    for (const a of range(c.subMin, c.subMax)) for (const b of range(c.subMin, c.subMax))
+      if (okRes(a - b) && !(c.subNoCarry && (a % 10) < (b % 10))) p.push({ a, b, op: '−', r: a - b });
+    pools.push(p);
+  }
+  return pools.filter(p => p.length);
+}
+const rnd = n => Math.floor(Math.random() * n);
+function nextTask(pools, last) {
+  for (let i = 0; i < 20; i++) {
+    const pool = pools[rnd(pools.length)];
+    let t = { ...pool[rnd(pool.length)] };
+    if (t.swap && Math.random() < 0.5) t = { ...t, a: t.b, b: t.a };
+    if (!last || t.a !== last.a || t.b !== last.b || t.op !== last.op) return t;
+  }
+  const pool = pools[0]; return { ...pool[rnd(pool.length)] };
+}
+
+// ---------- zvuky ----------
+let audio;
+function beep(freq, dur, type = 'sine') {
+  if (!cfg.sound) return;
+  try {
+    audio = audio || new AudioContext();
+    const o = audio.createOscillator(), g = audio.createGain();
+    o.type = type; o.frequency.value = freq; o.connect(g); g.connect(audio.destination);
+    g.gain.setValueAtTime(0.15, audio.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + dur);
+    o.start(); o.stop(audio.currentTime + dur);
+  } catch {}
+}
+const sndGood = () => { beep(660, .12); setTimeout(() => beep(880, .18), 110); };
+const sndBad = () => beep(180, .25, 'square');
+
+// ---------- hra ----------
+let game = null;   // {pools, task, ok, nok, n, start, taskStart, locked, mistakes, hadError}
+let raf = 0;
+
+function updateStats() {
+  $('ok').textContent = game ? game.ok : 0;
+  $('nok').textContent = game ? game.nok : 0;
+  $('progress').textContent = game ? `príklad ${Math.min(game.ok + 1, cfg.count)} z ${cfg.count}` : ' ';
+}
+
+function startGame() {
+  const pools = buildPools(cfg);
+  if (!pools.length) { alert('S týmito nastaveniami nevznikne žiadny príklad. Uprav nastavenia.'); openSettings(); return; }
+  game = { pools, task: null, ok: 0, nok: 0, start: Date.now(), locked: false, mistakes: [] };
+  $('grid').classList.remove('idle');
+  $('startBtn').textContent = 'Stop';
+  updateStats();
+  showTask();
+}
+
+function stopGame(finished) {
+  cancelAnimationFrame(raf);
+  if (finished && game) showResult();
+  game = null;
+  clearCells();
+  $('grid').classList.add('idle');
+  $('task').textContent = '—';
+  $('bar').style.width = '0';
+  $('startBtn').textContent = 'Štart';
+  updateStats();
+}
+
+function showTask() {
+  const g = game;
+  g.task = nextTask(g.pools, g.task);
+  g.hadError = false; g.locked = false;
+  clearCells();
+  if (cfg.highlight) { mark(g.task.a, 'op'); mark(g.task.b, 'op'); }
+  $('task').innerHTML = `${g.task.a} ${g.task.op} ${g.task.b} = <span class="q">?</span>`;
+  g.taskStart = performance.now();
+  tick();
+}
+
+function tick() {
+  cancelAnimationFrame(raf);
+  const loop = () => {
+    if (!game || game.locked) return;
+    const left = 1 - (performance.now() - game.taskStart) / (cfg.timeout * 1000);
+    $('bar').style.width = Math.max(0, left * 100) + '%';
+    $('bar').classList.toggle('low', left < 0.25);
+    if (left <= 0) return timeUp();
+    raf = requestAnimationFrame(loop);
+  };
+  loop();
+}
+
+function finishTask(delay) {
+  game.locked = true;
+  cancelAnimationFrame(raf);
+  setTimeout(() => {
+    if (!game) return;
+    if (game.ok >= cfg.count) stopGame(true); else showTask();
+  }, delay);
+}
+
+function timeUp() {
+  const g = game, t = g.task;
+  g.nok++; g.mistakes.push({ ...t, how: 'čas vypršal' });
+  sndBad(); updateStats();
+  if (cfg.showAnswer) {
+    mark(t.r, 'show');
+    $('task').innerHTML = `${t.a} ${t.op} ${t.b} = <span style="color:var(--green)">${t.r}</span>`;
+  }
+  finishTask(cfg.showAnswer ? 2000 : 500);
+}
+
+function pick(n) {
+  const g = game;
+  if (!g || g.locked) return;
+  const t = g.task;
+  if (n === t.r) {
+    g.ok++;
+    if (g.hadError) g.mistakes.push({ ...t, how: 'nakoniec správne' });
+    cells.forEach(c => c && c.classList.remove('bad'));
+    mark(n, 'good');
+    $('task').innerHTML = `${t.a} ${t.op} ${t.b} = <span style="color:var(--green)">${t.r}</span>`;
+    sndGood(); updateStats();
+    finishTask(500);
+  } else {
+    if (cells[n].classList.contains('bad')) return;   // to isté zlé číslo počítame len raz
+    g.nok++; g.hadError = true;
+    cells.forEach(c => c && c.classList.remove('bad'));
+    mark(n, 'bad');
+    sndBad(); updateStats();
+  }
+}
+
+$('grid').addEventListener('pointerdown', e => {
+  const c = e.target.closest('.cell');
+  if (c) { e.preventDefault(); pick(+c.dataset.n); }
+});
+$('startBtn').addEventListener('click', () => game ? stopGame(false) : startGame());
+
+// ---------- výsledok a história ----------
+function showResult() {
+  const g = game, secs = Math.round((Date.now() - g.start) / 1000);
+  const mm = Math.floor(secs / 60), ss = String(secs % 60).padStart(2, '0');
+  $('resSummary').innerHTML = `Správne: <b style="color:var(--green)">${g.ok}</b> &nbsp; Chyby: <b style="color:var(--red)">${g.nok}</b> &nbsp; Čas: <b>${mm}:${ss}</b>`;
+  const seen = new Map();
+  for (const m of g.mistakes) {
+    const k = `${m.a} ${m.op} ${m.b} = ${m.r}`;
+    seen.set(k, (seen.get(k) || 0) + 1);
+  }
+  $('resMistakes').innerHTML = seen.size
+    ? '<b>Príklady na zopakovanie:</b><table>' +
+      [...seen].map(([k, n]) => `<tr><td>${k}</td><td class="err">${n > 1 ? n + '×' : ''}</td></tr>`).join('') + '</table>'
+    : '<p>Bez jedinej chyby! ⭐</p>';
+  const hist = store.get('matika.hist', []);
+  hist.unshift({ d: new Date().toISOString(), ok: g.ok, nok: g.nok, s: secs,
+    ops: ['mul', 'div', 'add', 'sub'].filter(o => cfg[o + 'On']).map(o => ({ mul: '.', div: ':', add: '+', sub: '−' })[o]).join(' ') });
+  store.set('matika.hist', hist.slice(0, 50));
+  $('result').hidden = false;
+}
+$('resClose').addEventListener('click', () => $('result').hidden = true);
+$('resAgain').addEventListener('click', () => { $('result').hidden = true; startGame(); });
+
+function renderHistory() {
+  const h = store.get('matika.hist', []);
+  if (!h.length) return;
+  $('history').innerHTML = '<table><tr><th>Dátum</th><th>Príklady</th><th>Správne</th><th>Chyby</th><th>Čas</th></tr>' +
+    h.slice(0, 10).map(r => {
+      const d = new Date(r.d);
+      return `<tr><td>${d.toLocaleDateString('sk')} ${d.toLocaleTimeString('sk', { hour: '2-digit', minute: '2-digit' })}</td>` +
+        `<td>${r.ops || ''}</td><td>${r.ok}</td><td>${r.nok}</td><td>${Math.floor(r.s / 60)}:${String(r.s % 60).padStart(2, '0')}</td></tr>`;
+    }).join('') + '</table>';
+}
+
+// ---------- nastavenia ----------
+const fields = Object.keys(DEFAULTS);
+function fillForm(c) {
+  for (const k of fields) {
+    const el = $(k);
+    if (el.type === 'checkbox') el.checked = c[k]; else el.value = c[k];
+  }
+  updatePoolInfo();
+}
+function readForm() {
+  const c = {};
+  for (const k of fields) {
+    const el = $(k);
+    c[k] = el.type === 'checkbox' ? el.checked : (parseInt(el.value, 10) || 0);
+  }
+  c.count = Math.max(1, c.count); c.timeout = Math.max(1, c.timeout);
+  return c;
+}
+function updatePoolInfo() {
+  const n = buildPools(readForm()).reduce((s, p) => s + p.length, 0);
+  $('poolInfo').innerHTML = n ? `Počet rôznych príkladov: ${n}` : '<span class="err">S týmito nastaveniami nevznikne žiadny príklad.</span>';
+}
+function openSettings() {
+  if (game) stopGame(false);
+  fillForm(cfg); renderHistory();
+  $('settings').hidden = false;
+}
+$('settings').addEventListener('input', updatePoolInfo);
+$('setBtn').addEventListener('click', openSettings);
+$('resetSet').addEventListener('click', () => fillForm(DEFAULTS));
+$('saveSet').addEventListener('click', () => {
+  cfg = readForm(); store.set('matika.cfg', cfg);
+  $('settings').hidden = true;
+});
+
+updateStats();
+</script>
+</body>
+</html>

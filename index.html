@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>What time is it? (offline)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  color-scheme: light;
+  --bg:#EEF2FF; --surface:#FFFFFF; --ink:#1B1F3B; --muted:#5B6185;
+  --cobalt:#3150F5; --cobalt-ink:#FFFFFF; --sun:#FFC23D; --sun-edge:#C98A00;
+  --past:#D7F3E4; --to:#FFF0C7; --past-ink:#127A4E; --to-ink:#9A6A00;
+  --ok:#11845A; --okbg:#E1F6EC; --bad:#C52F37; --badbg:#FDE6E7; --mid:#8A5A00; --midbg:#FFF3D6;
+  --line:#D4DAF2; --face:#FFFFFF; --face-ink:#1B1F3B; --rim:#1B1F3B;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme: dark;
+    --bg:#12152B; --surface:#1C2140; --ink:#EEF0FF; --muted:#A3A9CF;
+    --cobalt:#7F93FF; --cobalt-ink:#0E1230; --sun:#FFC23D; --sun-edge:#FFC23D;
+    --past:#1B3A2E; --to:#3A3218; --past-ink:#6FE0AE; --to-ink:#FFD36E;
+    --ok:#4FD39A; --okbg:#173528; --bad:#FF8A90; --badbg:#3D1C20; --mid:#FFD36E; --midbg:#3A3218;
+    --line:#2E3560; --face:#242A50; --face-ink:#EEF0FF; --rim:#EEF0FF;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --bg:#12152B; --surface:#1C2140; --ink:#EEF0FF; --muted:#A3A9CF;
+  --cobalt:#7F93FF; --cobalt-ink:#0E1230; --sun:#FFC23D; --sun-edge:#FFC23D;
+  --past:#1B3A2E; --to:#3A3218; --past-ink:#6FE0AE; --to-ink:#FFD36E;
+  --ok:#4FD39A; --okbg:#173528; --bad:#FF8A90; --badbg:#3D1C20; --mid:#FFD36E; --midbg:#3A3218;
+  --line:#2E3560; --face:#242A50; --face-ink:#EEF0FF; --rim:#EEF0FF;
+}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:"Fredoka","Nunito",ui-rounded,"Segoe UI",system-ui,sans-serif;font-size:18px;line-height:1.45}
+main{max-width:980px;margin:0 auto;padding:20px 18px 40px}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+h1{font-size:28px;font-weight:700;margin:0;letter-spacing:-.01em}
+.score{display:flex;gap:16px;align-items:center;font-weight:600;font-size:18px}
+.score .stars{color:var(--sun-edge);letter-spacing:2px;min-height:1em}
+.stage{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:28px;align-items:center}
+@media (max-width:760px){.stage{grid-template-columns:1fr;gap:16px}}
+.clockwrap{display:flex;flex-direction:column;align-items:center;gap:10px}
+svg.clock{width:100%;max-width:400px;height:auto;display:block}
+.digital{font-size:64px;font-weight:600;letter-spacing:.02em;background:var(--surface);border:3px solid var(--rim);
+  border-radius:18px;padding:2px 26px;font-variant-numeric:tabular-nums;line-height:1.2}
+.hidden{display:none !important}
+.panel{display:flex;flex-direction:column;gap:14px}
+.question{display:flex;align-items:center;gap:10px;font-size:34px;font-weight:600;margin:0}
+.iconbtn{border:2px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;width:44px;height:44px;
+  display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex:none}
+.iconbtn:hover{border-color:var(--cobalt)}
+.sk{color:var(--muted);font-size:17px;margin:-6px 0 0}
+.mic{display:flex;align-items:center;gap:16px}
+.micbtn{position:relative;width:92px;height:92px;border-radius:50%;border:none;background:var(--cobalt);color:var(--cobalt-ink);
+  cursor:pointer;display:flex;align-items:center;justify-content:center;flex:none;box-shadow:0 6px 0 rgba(27,31,59,.18)}
+.micbtn:active{transform:translateY(3px);box-shadow:0 3px 0 rgba(27,31,59,.18)}
+.micbtn.listening::after{content:"";position:absolute;inset:-8px;border-radius:50%;border:4px solid var(--cobalt);animation:pulse 1.2s ease-out infinite}
+@keyframes pulse{from{opacity:.9;transform:scale(.92)}to{opacity:0;transform:scale(1.25)}}
+.miclabel{font-size:20px;font-weight:600}
+.miclabel small{display:block;font-size:15px;font-weight:400;color:var(--muted)}
+.typerow{display:flex;gap:8px}
+.typerow input{flex:1;min-width:0;font:inherit;font-size:18px;padding:10px 14px;border-radius:12px;border:2px solid var(--line);
+  background:var(--surface);color:var(--ink)}
+.typerow input:focus{outline:none;border-color:var(--cobalt)}
+button{font:inherit}
+.btn{border:2px solid var(--ink);background:var(--surface);color:var(--ink);border-radius:12px;padding:9px 16px;font-weight:600;cursor:pointer}
+.btn.primary{background:var(--ink);color:var(--bg)}
+.btn:hover{border-color:var(--cobalt)}
+:focus-visible{outline:3px solid var(--cobalt);outline-offset:3px}
+.feedback{border-radius:16px;padding:14px 16px;min-height:64px;background:var(--surface);border:2px dashed var(--line)}
+.feedback.ok{background:var(--okbg);border:2px solid var(--ok)}
+.feedback.bad{background:var(--badbg);border:2px solid var(--bad)}
+.feedback.mid{background:var(--midbg);border:2px solid var(--mid)}
+.feedback .title{font-weight:700;font-size:22px;margin:0 0 4px}
+.feedback.ok .title{color:var(--ok)} .feedback.bad .title{color:var(--bad)} .feedback.mid .title{color:var(--mid)}
+.feedback p{margin:4px 0}
+.feedback .answer{font-size:21px;font-weight:600}
+.feedback .heard{color:var(--muted);font-size:15px}
+.actions{display:flex;gap:10px;flex-wrap:wrap}
+.settings{margin-top:26px;background:var(--surface);border-radius:18px;padding:16px 18px;display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px 24px}
+.settings h2{font-size:17px;font-weight:600;margin:0 0 6px;color:var(--muted)}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg button{border:2px solid var(--line);background:transparent;color:var(--ink);border-radius:10px;padding:6px 11px;cursor:pointer;font-size:16px}
+.seg button[aria-pressed="true"]{background:var(--cobalt);border-color:var(--cobalt);color:var(--cobalt-ink);font-weight:600}
+.check{display:flex;gap:8px;align-items:flex-start;font-size:16px;margin:4px 0;cursor:pointer}
+.check input{width:20px;height:20px;margin:2px 0 0;accent-color:var(--cobalt);flex:none}
+.rule{font-size:16px;color:var(--muted);margin:0}
+.rule b{color:var(--ink)}
+.note{font-size:14px;color:var(--muted);margin-top:14px}
+.log{margin-top:18px;background:var(--surface);border-radius:18px;padding:12px 18px}
+.log summary{cursor:pointer;font-weight:600;color:var(--muted)}
+.log pre{margin:0;max-height:320px;overflow:auto;font-family:ui-monospace,Consolas,monospace;font-size:13px;line-height:1.5;white-space:pre-wrap;word-break:break-word}
+#hourHand,#minHand{transform-box:view-box;transform-origin:150px 150px;transition:transform .7s cubic-bezier(.3,1.3,.5,1)}
+@media (prefers-reduced-motion: reduce){
+  #hourHand,#minHand{transition:none}
+  .micbtn.listening::after{animation:none;opacity:.8}
+}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/vosk-browser@0.0.8/dist/vosk.js"></script>
+</head>
+<body>
+<main>
+  <header>
+    <h1>What time is it?</h1>
+    <div class="score" aria-live="polite">
+      <span>Správne: <span id="okCount">0</span> / <span id="allCount">0</span></span>
+      <span class="stars" id="stars" title="Séria správnych odpovedí"></span>
+    </div>
+  </header>
+
+  <section class="stage">
+    <div class="clockwrap">
+      <svg class="clock" id="clock" viewBox="0 0 300 300" role="img" aria-label="Hodiny">
+        <circle cx="150" cy="150" r="138" fill="var(--face)" stroke="var(--rim)" stroke-width="8"/>
+        <g id="halves">
+          <path d="M150 16 A134 134 0 0 1 150 284 Z" fill="var(--past)"/>
+          <path d="M150 284 A134 134 0 0 1 150 16 Z" fill="var(--to)"/>
+          <line x1="150" y1="16" x2="150" y2="284" stroke="var(--muted)" stroke-width="2" stroke-dasharray="5 6"/>
+          <text x="204" y="196" text-anchor="middle" font-size="20" font-weight="700" fill="var(--past-ink)" font-family="Fredoka, sans-serif">past</text>
+          <text x="96" y="196" text-anchor="middle" font-size="20" font-weight="700" fill="var(--to-ink)" font-family="Fredoka, sans-serif">to</text>
+        </g>
+        <g id="ticks"></g>
+        <g id="nums"></g>
+        <g id="hourHand"><line x1="150" y1="166" x2="150" y2="84" stroke="var(--sun)" stroke-width="12" stroke-linecap="round"/>
+          <line x1="150" y1="166" x2="150" y2="84" stroke="var(--sun-edge)" stroke-width="2" stroke-linecap="round" opacity=".5"/></g>
+        <g id="minHand"><line x1="150" y1="172" x2="150" y2="36" stroke="var(--cobalt)" stroke-width="7" stroke-linecap="round"/></g>
+        <circle cx="150" cy="150" r="9" fill="var(--rim)"/>
+      </svg>
+      <div class="digital hidden" id="digital">7:45</div>
+    </div>
+
+    <div class="panel">
+      <p class="question">What time is it?
+        <button class="iconbtn" id="sayQ" aria-label="Prečítať otázku nahlas" title="Prečítať otázku">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>
+        </button>
+      </p>
+      <p class="sk hidden" id="skHint"></p>
+
+      <div class="mic">
+        <button class="micbtn" id="micBtn" aria-label="Povedz čas po anglicky">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2.5" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3.5"/></svg>
+        </button>
+        <div class="miclabel" id="micLabel">Stlač a povedz čas<small>po anglicky, napríklad „quarter past seven“</small></div>
+      </div>
+
+      <form class="typerow" id="typeForm" onsubmit="return false">
+        <input id="typeIn" type="text" autocomplete="off" placeholder="…alebo napíš odpoveď" aria-label="Napíš odpoveď po anglicky">
+        <button class="btn" id="typeBtn" type="submit">Skontrolovať</button>
+      </form>
+
+      <div class="feedback" id="fb" aria-live="polite">
+        <p class="heard">Pozri sa na hodiny a povedz, koľko je hodín.</p>
+      </div>
+
+      <div class="actions">
+        <button class="btn primary" id="nextBtn">Ďalší čas</button>
+        <button class="btn" id="hearBtn">Vypočuť správnu odpoveď</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="settings" aria-label="Nastavenia">
+    <div>
+      <h2>Úroveň</h2>
+      <div class="seg" id="levelSeg">
+        <button data-v="1">Celé a pol</button>
+        <button data-v="2">Štvrťhodiny</button>
+        <button data-v="3">Po 5 minútach</button>
+        <button data-v="4">Každá minúta</button>
+      </div>
+    </div>
+    <div>
+      <h2>Hodiny</h2>
+      <div class="seg" id="viewSeg">
+        <button data-v="analog">Ručičkové</button>
+        <button data-v="digital">Digitálne</button>
+        <button data-v="both">Obe</button>
+      </div>
+    </div>
+    <div>
+      <h2>Pomôcky</h2>
+      <label class="check"><input type="checkbox" id="optHalves"> Vyfarbiť polovice past / to</label>
+      <label class="check"><input type="checkbox" id="optSk"> Ukázať čas po slovensky</label>
+      <label class="check"><input type="checkbox" id="optVoice"> Hlasová hra (Right / Wrong, otázka nahlas)</label>
+      <label class="check"><input type="checkbox" id="optAuto"> Po otázke hneď zapnúť mikrofón</label>
+      <label class="check"><input type="checkbox" id="optDigital"> Uznať aj „seven forty-five“</label>
+    </div>
+    <div>
+      <h2>Pravidlo</h2>
+      <p class="rule">Veľká ručička vpravo (1–30 minút): <b>minúty + past + hodina, ktorá už bola</b>.<br>
+      Veľká ručička vľavo (31–59 minút): <b>minúty do celej + to + hodina, ktorá príde</b>.<br>
+      Pozor: „pol ôsmej“ = <b>half past seven</b>.</p>
+    </div>
+  </section>
+  <details class="log">
+    <summary>Záznam pokusov (<span id="logCount">0</span>)</summary>
+    <div class="actions" style="margin:10px 0">
+      <button class="btn" id="logCopy">Kopírovať záznam</button>
+      <button class="btn" id="logClear">Vymazať záznam</button>
+      <span id="logMsg" class="rule" style="align-self:center"></span>
+    </div>
+    <pre id="logBox"></pre>
+  </details>
+  <p class="note" id="note">Táto verzia rozpoznáva reč offline (Vosk) a pozná len vety o čase. Potrebuje súbor vosk-model-small-en-us-0.15.tar.gz v rovnakom priečinku a spustenie cez http://localhost.</p>
+</main>
+
+<script>
+(function(){
+"use strict";
+// ---------- state & settings ----------
+var S = {level:2, view:"analog", halves:true, sk:false, voice:true, digitalOk:false, autoListen:false};
+try{ var saved = JSON.parse(localStorage.getItem("wtii-settings")||"null"); if(saved) Object.assign(S, saved); }catch(e){}
+function save(){ try{ localStorage.setItem("wtii-settings", JSON.stringify(S)); }catch(e){} }
+
+var T = {h:7, m:45};
+var okCount=0, allCount=0, streak=0, answered=false, lastAlts=[], advanceTimer=null, speakSeq=0;
+var LOG=[];
+try{ LOG=JSON.parse(localStorage.getItem("wtii-log")||"[]")||[]; }catch(e){ LOG=[]; }
+var minAng=0, hrAng=0;
+var $ = function(id){ return document.getElementById(id); };
+
+// ---------- clock drawing ----------
+(function draw(){
+  var ns="http://www.w3.org/2000/svg", ticks=$("ticks"), nums=$("nums");
+  for(var i=0;i<60;i++){
+    var a=i*6*Math.PI/180, big=i%5===0, r1=big?118:124, r2=131;
+    var l=document.createElementNS(ns,"line");
+    l.setAttribute("x1",150+r1*Math.sin(a)); l.setAttribute("y1",150-r1*Math.cos(a));
+    l.setAttribute("x2",150+r2*Math.sin(a)); l.setAttribute("y2",150-r2*Math.cos(a));
+    l.setAttribute("stroke","var(--face-ink)"); l.setAttribute("stroke-width",big?4:1.6); l.setAttribute("stroke-linecap","round");
+    ticks.appendChild(l);
+  }
+  for(var n=1;n<=12;n++){
+    var b=n*30*Math.PI/180, t=document.createElementNS(ns,"text");
+    t.setAttribute("x",150+100*Math.sin(b)); t.setAttribute("y",150-100*Math.cos(b)+9);
+    t.setAttribute("text-anchor","middle"); t.setAttribute("font-size","27"); t.setAttribute("font-weight","600");
+    t.setAttribute("font-family","Fredoka, sans-serif"); t.setAttribute("fill","var(--face-ink)");
+    t.textContent=n; nums.appendChild(t);
+  }
+})();
+function forward(cur, target){ var d=((target-cur)%360+360)%360; return cur+d; }
+function setHands(){
+  minAng=forward(minAng, T.m*6);
+  hrAng=forward(hrAng, (T.h%12)*30+T.m*0.5);
+  $("minHand").style.transform="rotate("+minAng+"deg)";
+  $("hourHand").style.transform="rotate("+hrAng+"deg)";
+  $("digital").textContent=T.h+":"+(T.m<10?"0":"")+T.m;
+}
+
+// ---------- language helpers ----------
+var EN=["zero","one","two","three","four","five","six","seven","eight","nine","ten","eleven","twelve","thirteen","fourteen","fifteen","sixteen","seventeen","eighteen","nineteen"];
+var ENT={2:"twenty",3:"thirty",4:"forty",5:"fifty"};
+function enNum(n){ if(n<20) return EN[n]; var t=ENT[Math.floor(n/10)], u=n%10; return u? t+"-"+EN[u] : t; }
+function nextH(h){ return h%12+1; }
+function prevH(h){ return (h+10)%12+1; }
+function english(t){
+  var h=t.h, m=t.m;
+  if(m===0) return enNum(h)+" o’clock";
+  if(m===15) return "quarter past "+enNum(h);
+  if(m===30) return "half past "+enNum(h);
+  if(m===45) return "quarter to "+enNum(nextH(h));
+  if(m<30) return enNum(m)+(m%5?" minutes":"")+" past "+enNum(h);
+  var r=60-m; return enNum(r)+(r%5?" minutes":"")+" to "+enNum(nextH(h));
+}
+function digitalEn(t){ if(t.m===0) return enNum(t.h)+" o’clock"; return enNum(t.h)+" "+(t.m<10?"oh "+EN[t.m]:enNum(t.m)); }
+function fmt(t){ return t.h+":"+(t.m<10?"0":"")+t.m; }
+var SK_ACC=["","jednu","dve","tri","štyri","päť","šesť","sedem","osem","deväť","desať","jedenásť","dvanásť"];
+var SK_GEN=["","jednej","druhej","tretej","štvrtej","piatej","šiestej","siedmej","ôsmej","deviatej","desiatej","jedenástej","dvanástej"];
+var SK_NOM=["","jedna","dve","tri","štyri","päť","šesť","sedem","osem","deväť","desať","jedenásť","dvanásť"];
+function slovak(t){
+  var h=t.h, m=t.m, n=nextH(h);
+  if(m===0) return SK_NOM[h]+(h===1?" hodina":(h<5?" hodiny":" hodín"));
+  if(m===15) return "štvrť na "+SK_ACC[n];
+  if(m===30) return "pol "+SK_GEN[n];
+  if(m===45) return "tri štvrte na "+SK_ACC[n];
+  return fmt(t);
+}
+
+// ---------- parsing what she said ----------
+var W={zero:0,oh:0,o:0,one:1,won:1,two:2,three:3,tree:3,four:4,"for":4,five:5,six:6,seven:7,eight:8,ate:8,nine:9,ten:10,eleven:11,twelve:12,
+  thirteen:13,fourteen:14,fifteen:15,sixteen:16,seventeen:17,eighteen:18,nineteen:19};
+var TENS={twenty:20,thirty:30,forty:40,fourty:40,fifty:50};
+var FILL={it:1,its:1,is:1,a:1,an:1,the:1,minutes:1,minute:1,and:1,um:1,uh:1,er:1,erm:1,now:1,time:1,exactly:1,about:1};
+var KEY={past:1,to:1,half:1,quarter:1,oclock:1,midnight:1,noon:1,midday:1};
+function tokenize(s){
+  s=String(s).toLowerCase().replace(/[’'`]/g,"").replace(/\bo\s*clock\b/g," oclock ")
+    .replace(/(\d{1,2})[:.](\d{2})/g," $1 $2 ").replace(/\+/g," plus ").replace(/-/g," ").replace(/[^a-z0-9 ]/g," ");
+  var out=[];
+  s.split(/\s+/).forEach(function(w){
+    if(!w) return;
+    if(/^\d{3,4}$/.test(w)){ out.push(w.slice(0,-2), w.slice(-2)); return; }
+    var mm=w.match(/^(\d{1,2})oclock$/); if(mm){ out.push(mm[1],"oclock"); return; }
+    if(w==="too") w="to";
+    if(w==="after") w="past";
+    if(w==="till"||w==="til"||w==="before"||w==="of") w="to";
+    if(FILL[w]) return;
+    out.push(w);
+  });
+  return fixMishear(out);
+}
+// Typical mishearings of a child's (or Slovak) accent
+var PASTV={pass:1,passed:1,fast:1,pest:1,paste:1,pased:1,parst:1,pas:1,bust:1,past:1,plus:1,plas:1,pause:1,pastor:1};
+var HALFV={how:1,have:1,huff:1,hof:1,hoff:1,harf:1,alf:1,off:1,hal:1,hall:1,hold:1,health:1,house:1,hello:1,huh:1};
+var QUARTV={quota:1,quarta:1,corter:1,porter:1,quarters:1,kwarter:1,courter:1,water:1,order:1,quartet:1,quater:1,cotter:1};
+var NUMV={free:"three",sex:"six",sicks:"six",tin:"ten",tan:"ten",nein:"nine",fife:"five",wan:"one",heat:"eight"};
+function fixMishear(t){
+  t=t.map(function(w){ if(PASTV[w]) return "past"; if(w==="clock") return "oclock"; if(NUMV[w]) return NUMV[w]; return w; });
+  for(var i=0;i<t.length-1;i++){
+    if(t[i+1]==="past"||t[i+1]==="to"){
+      if(HALFV[t[i]]) t[i]="half";
+      else if(QUARTV[t[i]]) t[i]="quarter";
+    }
+  }
+  return t;
+}
+function toItems(tok){
+  var items=[], i=0;
+  while(i<tok.length){
+    var w=tok[i], nx=tok[i+1];
+    if(/^\d+$/.test(w)){ items.push({n:parseInt(w,10)}); i++; continue; }
+    if(TENS.hasOwnProperty(w)){
+      var v=TENS[w];
+      if(nx && W.hasOwnProperty(nx) && W[nx]>=1 && W[nx]<=9 && nx!=="two"){ v+=W[nx]; i+=2; }
+      else if(nx==="two" && !(tok[i+2] && (W.hasOwnProperty(tok[i+2])||/^\d+$/.test(tok[i+2])))){ v+=2; i+=2; }
+      else i++;
+      items.push({n:v}); continue;
+    }
+    if(w==="oh"||w==="o"||w==="zero"){
+      if(nx && ((W.hasOwnProperty(nx)&&W[nx]>=1&&W[nx]<=9)||/^\d$/.test(nx))){ items.push({n:W.hasOwnProperty(nx)?W[nx]:parseInt(nx,10)}); i+=2; continue; }
+      items.push({n:0}); i++; continue;
+    }
+    if(W.hasOwnProperty(w)){ items.push({n:W[w]}); i++; continue; }
+    if(KEY[w]){ items.push(w); i++; continue; }
+    i++;
+  }
+  return items;
+}
+function isN(x){ return typeof x==="object"; }
+function fin(h,m,meta){
+  if(!(m>=0&&m<=59&&h>=0&&h<=24)) return null;
+  h=((h%12)+12)%12; if(h===0) h=12;
+  meta.h=h; meta.m=m; return meta;
+}
+function parse(items){
+  var ki=-1;
+  for(var i=0;i<items.length;i++){ if(items[i]==="past"||items[i]==="to"){ ki=i; break; } }
+  // "quarter two eight" → "quarter to eight"
+  if(ki<0 && items.length===3 && isN(items[1]) && items[1].n===2 && isN(items[2]) && (items[0]==="quarter"||items[0]==="half"||isN(items[0]))){
+    items=[items[0],"to",items[2]]; ki=1;
+  }
+  if(ki>=0){
+    var kw=items[ki], before=items.slice(0,ki), after=items.slice(ki+1);
+    var hi=null; for(var j=0;j<after.length;j++){ if(isN(after[j])){ hi=after[j]; break; } }
+    if(!hi) return null;
+    var m=null;
+    if(before.indexOf("quarter")>=0) m=15; else if(before.indexOf("half")>=0) m=30;
+    else { var b=before.filter(isN); if(b.length) m=b[b.length-1].n; }
+    if(m===null||m<1||m>59) return null;
+    return kw==="past" ? fin(hi.n, m, {style:"pastto", kw:kw}) : fin(hi.n-1, 60-m, {style:"pastto", kw:kw});
+  }
+  if(items.indexOf("midnight")>=0||items.indexOf("noon")>=0||items.indexOf("midday")>=0) return fin(12,0,{style:"oclock"});
+  var hh=items.indexOf("half");
+  if(hh>=0){ var after2=items.slice(hh+1).filter(isN); if(after2.length) return fin(after2[0].n,30,{style:"halfH"}); }
+  var nums=items.filter(isN).map(function(x){return x.n;});
+  if(items.indexOf("oclock")>=0 && nums.length) return fin(nums[0],0,{style:"oclock"});
+  if(nums.length>=2) return fin(nums[0],nums[1],{style:"digital"});
+  if(nums.length===1) return fin(nums[0],0,{style:"bare"});
+  return null;
+}
+// ---------- fuzzy snapping to the nearest valid phrase ----------
+var CANDS=null;
+function words(n){ return enNum(n).replace(/-/g," "); }
+function phon(s){
+  s=String(s).toLowerCase().replace(/[^a-z ]/g,"").replace(/\b([a-z]{2,})e\b/g,"$1").replace(/\btw/g,"t")
+    .replace(/ph/g,"f").replace(/th/g,"t").replace(/sh|ch/g,"s").replace(/ck/g,"k").replace(/qu/g,"kw")
+    .replace(/wh/g,"w").replace(/gh/g,"").replace(/x/g,"ks").replace(/c(?=[eiy])/g,"s").replace(/c/g,"k")
+    .replace(/z/g,"s").replace(/v/g,"f").replace(/b/g,"p").replace(/d/g,"t").replace(/g/g,"k")
+    .replace(/([a-z])\1+/g,"$1").replace(/[aeiouy]+/g,"a");
+  return s.replace(/ /g,"");
+}
+function buildCands(){
+  CANDS=[];
+  function add(txt,h,m,style,kw){ CANDS.push({txt:txt, ws:txt.split(" ").map(phon), h:h, m:m, style:style, kw:kw}); }
+  for(var h=1;h<=12;h++){
+    var nh=h%12+1;
+    for(var m=0;m<60;m++){
+      if(m===0){ add(words(h)+" oclock",h,0,"oclock"); add(words(h),h,0,"bare"); continue; }
+      if(m===15) add("quarter past "+words(h),h,m,"pastto","past");
+      else if(m===30){ add("half past "+words(h),h,m,"pastto","past"); add("half "+words(h),h,m,"halfH"); }
+      else if(m===45) add("quarter to "+words(nh),h,m,"pastto","to");
+      else if(m<30) add(words(m)+" past "+words(h),h,m,"pastto","past");
+      else add(words(60-m)+" to "+words(nh),h,m,"pastto","to");
+      add(words(h)+" "+(m<10?"oh "+EN[m]:words(m)),h,m,"digital");
+    }
+  }
+}
+// character edit distance between two phonetic codes, normalised to 0..1
+var WD={};
+function lev(a,b){
+  var m=b.length, prev=[], cur=[], i, j, tmp;
+  for(j=0;j<=m;j++) prev[j]=j;
+  for(i=1;i<=a.length;i++){
+    cur[0]=i;
+    for(j=1;j<=m;j++) cur[j]=Math.min(prev[j-1]+(a.charCodeAt(i-1)===b.charCodeAt(j-1)?0:1), prev[j]+1, cur[j-1]+1);
+    tmp=prev; prev=cur; cur=tmp;
+  }
+  return prev[m];
+}
+function wdist(a,b){
+  var k=a+"|"+b; if(WD.hasOwnProperty(k)) return WD[k];
+  var d=(a===b)?0:lev(a,b)/Math.max(a.length,b.length,1);
+  return (WD[k]=d);
+}
+// word-level alignment: each word is compared phonetically; extra words around the answer are cheap
+function fuzzyDist(c,t){
+  var EDGE=.5, EXTRA=.7, n=c.length, m=t.length, prev=[], cur=[], i, j, tmp;
+  for(j=0;j<=m;j++) prev[j]=EDGE*j;
+  for(i=1;i<=n;i++){
+    cur[0]=prev[0]+1;
+    for(j=1;j<=m;j++) cur[j]=Math.min(prev[j-1]+wdist(c[i-1],t[j-1]), prev[j]+1, cur[j-1]+EXTRA);
+    tmp=prev; prev=cur; cur=tmp;
+  }
+  var best=Infinity; for(j=0;j<=m;j++) best=Math.min(best, prev[j]+EDGE*(m-j));
+  return best;
+}
+function fuzzy(tok){
+  if(!CANDS) buildCands();
+  var t=[];
+  tok.forEach(function(w){
+    if(/^\d+$/.test(w)){ var n=parseInt(w,10); if(n<=59) words(n).split(" ").forEach(function(x){ t.push(phon(x)); }); }
+    else { var p=phon(w); if(p) t.push(p); }
+  });
+  if(!t.length) return null;
+  var best=null, bd=Infinity;
+  for(var i=0;i<CANDS.length;i++){ var d=fuzzyDist(CANDS[i].ws,t); if(d<bd){ bd=d; best=CANDS[i]; } }
+  var n=best.ws.length;
+  if(bd > .34*n + .5*Math.max(0,t.length-n)) return null;
+  return {h:best.h, m:best.m, style:best.style, kw:best.kw, fuzzy:bd>0, phrase:best.txt};
+}
+function interpret(a){
+  var tok=tokenize(a);
+  return fuzzy(tok) || parse(toItems(tok));
+}
+function same(p,t){ return p.h===t.h && p.m===t.m; }
+function accepted(p,t){
+  if(t.m===0) return p.style==="oclock"||p.style==="bare"||(S.digitalOk&&p.style==="digital");
+  return p.style==="pastto"||p.style==="halfH"||(S.digitalOk&&p.style==="digital");
+}
+
+// ---------- feedback ----------
+function esc(s){ return String(s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];}); }
+function show(kind, title, lines, heard){
+  var fb=$("fb"); fb.className="feedback "+kind;
+  var h='<p class="title">'+title+'</p>';
+  lines.forEach(function(l){ h+='<p>'+l+'</p>'; });
+  if(heard) h+='<p class="heard">Zachytené: „'+esc(heard)+'“</p>';
+  var others=lastAlts.filter(function(a){return a!==heard;});
+  if(heard && others.length) h+='<p class="heard">Iné verzie: '+others.map(function(a){return '„'+esc(a)+'“';}).join(', ')+'</p>';
+  fb.innerHTML=h;
+}
+function explain(p,t){
+  var nh=nextH(t.h);
+  if(t.m===30 && p.m===30 && p.h===nh)
+    return p.style==="halfH"
+      ? "„half "+enNum(nh)+"“ znamená "+nh+":30. Po slovensky „pol "+SK_GEN[nh]+"“, ale anglicky hovoríme hodinu, ktorá už bola."
+      : "Toto je tá pasca! Po slovensky „pol "+SK_GEN[nh]+"“, ale anglicky hovoríme hodinu, ktorá už bola.";
+  if(t.m===15 && p.m===15 && p.h===nh)
+    return "Po slovensky „štvrť na "+SK_ACC[nh]+"“, ale anglicky hovoríme „štvrť po“ hodine, ktorá už bola.";
+  if(t.m>30 && (p.style==="digital" || (p.style==="pastto" && p.kw==="to")) && p.m===t.m && p.h===prevH(t.h))
+    return "Pri slovíčku to hovoríme hodinu, ktorá ešte len príde.";
+  if(t.m>30 && p.style==="pastto" && p.kw==="past")
+    return "Veľká ručička je už za polovicou (vľavo). Vtedy používame to a hodinu, ktorá príde.";
+  if(t.m>0 && t.m<=30 && p.style==="pastto" && p.kw==="to")
+    return "Veľká ručička je ešte pred polovicou (vpravo). Vtedy používame past a hodinu, ktorá už bola.";
+  if(p.style==="digital" && t.m!==0 && t.m!==30 && p.h===t.h && p.m===60-t.m)
+    return t.m>30
+      ? "Zdá sa, že si použila past. Veľká ručička je už za polovicou (vľavo), vtedy používame to a hodinu, ktorá príde."
+      : "Zdá sa, že si použila to. Veľká ručička je ešte pred polovicou (vpravo), vtedy používame past a hodinu, ktorá už bola.";
+  if(p.m===t.m && p.h!==t.h)
+    return "Minúty sú dobre, ale hodina nesedí. Pozri sa na malú žltú ručičku.";
+  if(p.h===t.h && p.m!==t.m)
+    return "Hodina je dobre, ale minúty nesedia. Pozri, kam ukazuje veľká ručička – každé číslo je 5 minút.";
+  return "Toto by bolo "+fmt(p)+", ale na hodinách je "+fmt(t)+".";
+}
+function grade(alts, fromSpeech){
+  alts=alts.filter(function(a){return a && a.trim();});
+  lastAlts=alts;
+  if(!alts.length){ show("mid","Nič som nepočula",["Skús to znova, trochu hlasnejšie."],null); return; }
+  var parsed=alts.map(function(a){ return {a:a, p:interpret(a)}; });
+  var hit=null, sameT=null, any=null;
+  parsed.forEach(function(x){
+    if(!x.p) return;
+    if(!any) any=x;
+    if(same(x.p,T)){
+      if(!sameT) sameT=x;
+      // Edge/Chrome often rewrite "quarter to nine" as "8:45" – the words are lost, so trust the time
+      var numeric = fromSpeech && x.p.style==="digital" && /\d{1,2}[:.]\d{2}/.test(x.a);
+      if(accepted(x.p,T) && (!hit || hit.numeric)) { hit=x; hit.numeric=false; }
+      else if(numeric && !hit) { hit=x; hit.numeric=true; }
+    }
+  });
+  var correct=english(T);
+  if(hit){
+    logAttempt(alts, fromSpeech, hit.p, hit.numeric?"správne (zapísané číslami)":"správne");
+    if(!answered){ okCount++; allCount++; streak++; answered=true; updScore(); }
+    var lines=['<span class="answer">'+correct+'</span>'];
+    if(hit.p.style==="bare") lines.push("Nabudúce pridaj na koniec aj o’clock.");
+    if(hit.p.style==="halfH") lines.push("„half "+enNum(T.h)+"“ hovoria Briti, ale ľahko sa to pomýli. Bezpečnejšie je half past.");
+    if(hit.numeric) lines.push("Prehliadač zapísal odpoveď číslami, takže slovíčko past/to neviem overiť.");
+    else if(hit.p.style==="digital") lines.push("Dá sa povedať aj: "+correct);
+    lines.push("Ďalší čas príde o chvíľu…");
+    show("ok", pick(["Výborne!","Správne!","Super!","Presne tak!"]), lines, hit.a);
+    if(advanceTimer) clearTimeout(advanceTimer);
+    if(S.voice) speak("Right! It’s "+correct+".", newRound);
+    else advanceTimer=setTimeout(newRound,2200);
+    return;
+  }
+  if(sameT){
+    logAttempt(alts, fromSpeech, sameT.p, "správny čas, bez past/to");
+    show("mid","Čas je správny, ešte inak",["Skús to povedať so slovíčkom past alebo to.","Napríklad: <b>"+correct+"</b>"], sameT.a);
+    if(S.voice) speak("Almost! Say it with past or to.");
+    return;
+  }
+  if(any){
+    logAttempt(alts, fromSpeech, any.p, "chyba");
+    if(!answered){ allCount++; streak=0; answered=true; updScore(); }
+    show("bad","Skoro…",[explain(any.p,T),'Správne je: <span class="answer">'+correct+'</span>',"Zopakuj to nahlas a skús znova."], any.a);
+    if(S.voice) speak("Wrong! It’s "+correct+". Try again.");
+    return;
+  }
+  logAttempt(alts, fromSpeech, null, "nerozumela");
+  show("mid","Nerozumela som",["Povedz celý čas, napríklad „quarter past seven“."], alts[0]);
+  if(S.voice) speak("Sorry, I didn’t understand. Try again.");
+}
+function pick(a){ return a[Math.floor(Math.random()*a.length)]; }
+function pad(n){ return (n<10?"0":"")+n; }
+function logAttempt(alts, fromSpeech, p, result){
+  var d=new Date();
+  LOG.push({ts:pad(d.getDate())+"."+pad(d.getMonth()+1)+". "+pad(d.getHours())+":"+pad(d.getMinutes()),
+    target:fmt(T), src:fromSpeech?"hlas":"písané", alts:alts.slice(0,5),
+    interp:p?(fmt(p)+" "+p.style+(p.kw?" ("+p.kw+")":"")+(p.fuzzy?" ≈ "+p.phrase:"")):"—", result:result});
+  if(LOG.length>300) LOG=LOG.slice(-300);
+  try{ localStorage.setItem("wtii-log", JSON.stringify(LOG)); }catch(e){}
+  renderLog();
+}
+function logText(){
+  return LOG.map(function(e){
+    return e.ts+" | na hodinách "+e.target+" | "+e.src+": "+e.alts.map(function(a){return "„"+a+"“";}).join(" / ")+" → "+e.interp+" | "+e.result;
+  }).join("\n");
+}
+function renderLog(){
+  $("logCount").textContent=LOG.length;
+  $("logBox").textContent=LOG.length?logText().split("\n").reverse().join("\n"):"Zatiaľ žiadne pokusy.";
+}
+function updScore(){
+  $("okCount").textContent=okCount; $("allCount").textContent=allCount;
+  $("stars").textContent= streak ? "★".repeat(Math.min(streak,10)) : "";
+}
+
+// ---------- new round ----------
+function newTime(){
+  if(advanceTimer){ clearTimeout(advanceTimer); advanceTimer=null; }
+  var m, h, tries=0;
+  do{
+    h=1+Math.floor(Math.random()*12);
+    if(S.level===1) m=Math.random()<.5?0:30;
+    else if(S.level===2) m=[0,15,30,45][Math.floor(Math.random()*4)];
+    else if(S.level===3) m=Math.random()<.4?[15,30,45][Math.floor(Math.random()*3)]:5*Math.floor(Math.random()*12);
+    else m=Math.random()<.25?[15,30,45][Math.floor(Math.random()*3)]:Math.floor(Math.random()*60);
+    tries++;
+  }while(tries<20 && h===T.h && m===T.m);
+  T={h:h,m:m}; answered=false;
+  setHands(); updSk();
+  $("typeIn").value="";
+  var fb=$("fb"); fb.className="feedback"; fb.innerHTML='<p class="heard">Pozri sa na hodiny a povedz, koľko je hodín.</p>';
+}
+function newRound(){
+  newTime();
+  if(S.voice) speak("What time is it?", S.autoListen ? startListening : null);
+  else if(S.autoListen) startListening();
+}
+function updSk(){
+  var el=$("skHint");
+  if(S.sk){ el.classList.remove("hidden"); el.textContent="Po slovensky: "+slovak(T); } else el.classList.add("hidden");
+}
+
+// ---------- speech output ----------
+var voices=[];
+function loadVoices(){ try{ voices=speechSynthesis.getVoices(); }catch(e){} }
+if("speechSynthesis" in window){ loadVoices(); speechSynthesis.onvoiceschanged=loadVoices; }
+function speak(text, done){
+  var seq=++speakSeq, called=false;
+  function fin(){ if(called||seq!==speakSeq) return; called=true; if(done) done(); }
+  if(!("speechSynthesis" in window)){ if(done) setTimeout(fin,1200); return; }
+  try{
+    speechSynthesis.cancel();
+    var u=new SpeechSynthesisUtterance(String(text).replace(/’/g,"'"));
+    var v=voices.find(function(x){return /^en-GB/i.test(x.lang);})||voices.find(function(x){return /^en/i.test(x.lang);});
+    if(v){ u.voice=v; u.lang=v.lang; } else u.lang="en-GB";
+    u.rate=.82; u.onend=fin; u.onerror=fin;
+    speechSynthesis.speak(u);
+    if(done) setTimeout(fin, 2500+String(text).length*110); // fallback if onend never fires
+  }catch(e){ if(done) setTimeout(fin,1200); }
+}
+
+// ---------- speech input: Vosk (offline, restricted to valid time phrases) ----------
+var MODEL_URL="vosk-model-small-en-us-0.15.tar.gz";
+var modelPromise=null, vModel=null, vRec=null, vCtx=null, vStream=null, vNode=null, vSrc=null;
+var listening=false, listenTimer=null, heardSomething=false;
+var micLabelDefault=$("micLabel").innerHTML;
+function micMsg(main, small){ $("micLabel").innerHTML=main+(small?"<small>"+small+"</small>":""); }
+function grammarJSON(){
+  if(!CANDS) buildCands();
+  var seen={}, list=[];
+  CANDS.forEach(function(c){ var t=c.txt.replace(/oclock/g,"o'clock"); if(!seen[t]){ seen[t]=1; list.push(t); } });
+  list.push("[unk]");
+  return JSON.stringify(list);
+}
+function getModel(){
+  if(!modelPromise){
+    micMsg("Načítavam rozpoznávač…","Prvýkrát to trvá niekoľko sekúnd.");
+    modelPromise=Vosk.createModel(MODEL_URL).then(function(m){ vModel=m; return m; },
+      function(e){ modelPromise=null; var err=new Error("model"); err.cause=e; throw err; });
+  }
+  return modelPromise;
+}
+function getAudio(){
+  if(vStream) return Promise.resolve();
+  return navigator.mediaDevices.getUserMedia({video:false, audio:{echoCancellation:true, noiseSuppression:true, channelCount:1}})
+    .then(function(stream){
+      vStream=stream;
+      vSrc=vCtx.createMediaStreamSource(stream);
+      vNode=vCtx.createScriptProcessor(4096,1,1);
+      vNode.onaudioprocess=function(e){ if(listening && vRec){ try{ vRec.acceptWaveform(e.inputBuffer); }catch(err){} } };
+      vSrc.connect(vNode); vNode.connect(vCtx.destination);
+    });
+}
+function stopListening(){
+  listening=false;
+  if(listenTimer){ clearTimeout(listenTimer); listenTimer=null; }
+  try{ if(vRec) vRec.retrieveFinalResult(); }catch(e){}
+  $("micBtn").classList.remove("listening"); $("micLabel").innerHTML=micLabelDefault;
+}
+function onResult(msg){
+  if(!listening) return;
+  var text=((msg.result && msg.result.text)||"").replace(/\[unk\]/g," ").replace(/\s+/g," ").trim();
+  if(!text){ heardSomething=true; return; } // only noise / unknown words: keep listening
+  stopListening();
+  grade([text], true);
+}
+function onPartial(msg){
+  if(!listening) return;
+  var p=((msg.result && msg.result.partial)||"").replace(/\[unk\]/g,"").trim();
+  if(p) micMsg("Počúvam…", p);
+}
+function startListening(){
+  if(listening){ stopListening(); return; }
+  if(typeof Vosk==="undefined"){
+    show("mid","Rozpoznávač sa nenačítal",["Knižnica sa sťahuje z cdn.jsdelivr.net. Skontroluj internet a obnov stránku."],null); return;
+  }
+  speakSeq++;
+  try{ speechSynthesis && speechSynthesis.cancel(); }catch(e){}
+  if(!vCtx){ try{ vCtx=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} }
+  if(vCtx && vCtx.state==="suspended"){ try{ vCtx.resume(); }catch(e){} }
+  Promise.all([getModel(), getAudio()]).then(function(){
+    if(!vRec){
+      vRec=new vModel.KaldiRecognizer(vCtx.sampleRate, grammarJSON());
+      vRec.on("result", onResult);
+      vRec.on("partialresult", onPartial);
+    }
+    listening=true; heardSomething=false;
+    $("micBtn").classList.add("listening"); micMsg("Počúvam…","Povedz čas po anglicky.");
+    listenTimer=setTimeout(function(){
+      if(!listening) return;
+      stopListening();
+      if(heardSomething){
+        logAttempt(["(nezrozumiteľné)"], true, null, "nerozumela");
+        show("mid","Nerozumela som",["Skús to povedať ešte raz, pomaly a nahlas."],null);
+        if(S.voice) speak("Sorry, I didn’t understand. Try again.");
+      } else show("mid","Nič som nepočula",["Stlač tlačidlo a povedz čas."],null);
+    }, 8000);
+  }).catch(function(e){
+    $("micLabel").innerHTML=micLabelDefault;
+    if(e && e.message==="model")
+      show("mid","Model sa nenašiel",["Ulož súbor <b>"+MODEL_URL+"</b> do rovnakého priečinka ako túto stránku a otvor ju cez <b>http://localhost</b>, nie dvojklikom."],null);
+    else if(e && (e.name==="NotAllowedError"||e.name==="SecurityError"))
+      show("mid","Mikrofón je zablokovaný",["Povoľ mikrofón v prehliadači (ikona vľavo v adresnom riadku)."],null);
+    else show("mid","Mikrofón sa nespustil",[esc(e && (e.message||e.name)||"neznáma chyba")],null);
+  });
+}
+$("micBtn").addEventListener("click",startListening);
+
+// ---------- other controls ----------
+$("typeForm").addEventListener("submit",function(){ var v=$("typeIn").value; if(v.trim()) grade([v]); });
+$("nextBtn").addEventListener("click",newRound);
+$("hearBtn").addEventListener("click",function(){ speak(english(T)); });
+$("sayQ").addEventListener("click",function(){ speak("What time is it?"); });
+$("logCopy").addEventListener("click",function(){
+  var txt=logText(), msg=$("logMsg");
+  function fallback(){
+    var ta=document.createElement("textarea"); ta.value=txt; document.body.appendChild(ta); ta.select();
+    try{ document.execCommand("copy"); msg.textContent="Skopírované."; }catch(e){ msg.textContent="Kopírovanie nejde, označte text ručne."; }
+    document.body.removeChild(ta);
+  }
+  try{ navigator.clipboard.writeText(txt).then(function(){ msg.textContent="Skopírované."; }, fallback); }catch(e){ fallback(); }
+});
+$("logClear").addEventListener("click",function(){
+  LOG=[]; try{ localStorage.removeItem("wtii-log"); }catch(e){} renderLog(); $("logMsg").textContent="Vymazané.";
+});
+
+function bindSeg(id,key,parseV){
+  var seg=$(id);
+  function paint(){ Array.prototype.forEach.call(seg.querySelectorAll("button"),function(b){ b.setAttribute("aria-pressed", String(parseV(b.dataset.v)===S[key])); }); }
+  seg.addEventListener("click",function(e){
+    var b=e.target.closest("button"); if(!b) return;
+    S[key]=parseV(b.dataset.v); save(); paint(); applyView();
+    if(key==="level") newTime();
+  });
+  paint();
+}
+bindSeg("levelSeg","level",function(v){return parseInt(v,10);});
+bindSeg("viewSeg","view",function(v){return v;});
+function bindCheck(id,key){
+  var c=$(id); c.checked=!!S[key];
+  c.addEventListener("change",function(){ S[key]=c.checked; save(); applyView(); });
+}
+bindCheck("optHalves","halves"); bindCheck("optSk","sk"); bindCheck("optVoice","voice"); bindCheck("optAuto","autoListen"); bindCheck("optDigital","digitalOk");
+function applyView(){
+  $("clock").classList.toggle("hidden", S.view==="digital");
+  $("digital").classList.toggle("hidden", S.view==="analog");
+  $("halves").style.display = S.halves ? "" : "none";
+  updSk();
+}
+
+renderLog();
+applyView();
+newTime();
+})();
+</script>
+</body>
+</html>

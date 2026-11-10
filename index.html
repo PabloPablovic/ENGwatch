@@ -193,6 +193,8 @@ button{font:inherit}
       <label class="check"><input type="checkbox" id="optHalves"> Vyfarbiť polovice past / to</label>
       <label class="check"><input type="checkbox" id="optSk"> Ukázať čas po slovensky</label>
       <label class="check"><input type="checkbox" id="optVoice"> Hlasová hra (Right / Wrong, otázka nahlas)</label>
+      <label class="check" style="flex-wrap:wrap;gap:6px">Hlas: <select id="optVoiceName" style="max-width:100%;font:inherit;padding:4px"></select> <button class="btn" id="voiceTest" type="button">Vyskúšať</button></label>
+      <p class="note" style="margin:0">iPhone: Nastavenia → Prístupnosť → Čítaný obsah → Hlasy → English → stiahnite hlas „Enhanced/Premium“ (napr. Ava, Zoe, Daniel), potom reštartujte Safari.</p>
       <label class="check"><input type="checkbox" id="optAuto"> Po otázke hneď zapnúť mikrofón</label>
       <label class="check"><input type="checkbox" id="optDigital"> Uznať aj „seven forty-five“</label>
     </div>
@@ -219,7 +221,7 @@ button{font:inherit}
 (function(){
 "use strict";
 // ---------- state & settings ----------
-var S = {level:2, view:"analog", halves:true, sk:false, voice:true, digitalOk:false, autoListen:false};
+var S = {level:2, view:"analog", halves:true, sk:false, voice:true, voiceName:"", digitalOk:false, autoListen:false};
 try{ var saved = JSON.parse(localStorage.getItem("wtii-settings")||"null"); if(saved) Object.assign(S, saved); }catch(e){}
 function save(){ try{ localStorage.setItem("wtii-settings", JSON.stringify(S)); }catch(e){} }
 
@@ -597,7 +599,29 @@ function updSk(){
 
 // ---------- speech output ----------
 var voices=[];
-function loadVoices(){ try{ voices=speechSynthesis.getVoices(); }catch(e){} }
+function voiceScore(x){
+  var n=x.name||"", sc=0;
+  if(/premium/i.test(n)) sc+=40;
+  if(/enhanced|neural|natural/i.test(n)) sc+=30;
+  if(/^(Ava|Zoe|Evan|Nathan|Serena|Daniel|Kate|Jamie|Samantha|Allison|Susan|Tom|Arthur|Martha|Google UK|Google US|Microsoft)/i.test(n)) sc+=10;
+  if(/^en-GB/i.test(x.lang)) sc+=5; else if(/^en-US/i.test(x.lang)) sc+=3;
+  if(/compact|eloquence|Albert|Bad News|Bahh|Bells|Boing|Bubbles|Cellos|Good News|Jester|Organ|Superstar|Trinoids|Whisper|Wobble|Zarvox|Fred|Junior|Ralph|Kathy|Grandma|Grandpa|Rocko|Shelley|Flo|Reed|Sandy/i.test(n)) sc-=50;
+  return sc;
+}
+function bestVoice(){
+  var en=voices.filter(function(x){return /^en/i.test(x.lang);});
+  if(S.voiceName){ var c=en.find(function(x){return x.name===S.voiceName;}); if(c) return c; }
+  return en.slice().sort(function(a,b){return voiceScore(b)-voiceScore(a);})[0]||null;
+}
+function fillVoiceSelect(){
+  var sel=document.getElementById("optVoiceName"); if(!sel) return;
+  var en=voices.filter(function(x){return /^en/i.test(x.lang);}).sort(function(a,b){return voiceScore(b)-voiceScore(a);});
+  sel.innerHTML="";
+  var o=document.createElement("option"); o.value=""; o.textContent="Automaticky (najlepší)"; sel.appendChild(o);
+  en.forEach(function(x){ var o=document.createElement("option"); o.value=x.name; o.textContent=x.name+" ("+x.lang+")"; sel.appendChild(o); });
+  sel.value=en.some(function(x){return x.name===S.voiceName;})?S.voiceName:"";
+}
+function loadVoices(){ try{ voices=speechSynthesis.getVoices(); }catch(e){} fillVoiceSelect(); }
 if("speechSynthesis" in window){ loadVoices(); speechSynthesis.onvoiceschanged=loadVoices; }
 function speak(text, done){
   var seq=++speakSeq, called=false;
@@ -606,9 +630,10 @@ function speak(text, done){
   try{
     speechSynthesis.cancel();
     var u=new SpeechSynthesisUtterance(String(text).replace(/’/g,"'"));
-    var v=voices.find(function(x){return /^en-GB/i.test(x.lang);})||voices.find(function(x){return /^en/i.test(x.lang);});
+    if(!voices.length) loadVoices();
+    var v=bestVoice();
     if(v){ u.voice=v; u.lang=v.lang; } else u.lang="en-GB";
-    u.rate=.82; u.onend=fin; u.onerror=fin;
+    u.rate=.9; u.onend=fin; u.onerror=fin;
     speechSynthesis.speak(u);
     if(done) setTimeout(fin, 2500+String(text).length*110); // fallback if onend never fires
   }catch(e){ if(done) setTimeout(fin,1200); }
@@ -746,6 +771,10 @@ function bindCheck(id,key){
   var c=$(id); c.checked=!!S[key];
   c.addEventListener("change",function(){ S[key]=c.checked; save(); applyView(); });
 }
+(function(){ var sel=document.getElementById("optVoiceName"), b=document.getElementById("voiceTest");
+  if(sel) sel.addEventListener("change", function(){ S.voiceName=sel.value; save(); speak("What time is it? It's quarter past seven."); });
+  if(b) b.addEventListener("click", function(){ loadVoices(); speak("What time is it? It's quarter past seven."); });
+  fillVoiceSelect(); })();
 bindCheck("optHalves","halves"); bindCheck("optSk","sk"); bindCheck("optVoice","voice"); bindCheck("optAuto","autoListen"); bindCheck("optDigital","digitalOk");
 function applyView(){
   $("clock").classList.toggle("hidden", S.view==="digital");

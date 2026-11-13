@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="sk">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Registratúra</title>
+  <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>Zaevidovať e-mail</h1>
+    <button id="btnSettings" class="link" title="Nastavenia">⚙ Nastavenia</button>
+  </header>
+
+  <div id="msg" class="msg" hidden></div>
+
+  <!-- Nastavenia: URL flowu a kľúč sa ukladajú do roamingSettings používateľa, nie do kódu -->
+  <section id="settings" hidden>
+    <h2>Nastavenia</h2>
+    <p class="hint">Údaje dostaneš od správcu registratúry. Uložia sa len v tvojej poštovej schránke.</p>
+    <label>Adresa flowu (HTTP POST URL)
+      <input id="setUrl" type="url" autocomplete="off" spellcheck="false">
+    </label>
+    <label>Kľúč
+      <input id="setKey" type="password" autocomplete="off">
+    </label>
+    <div class="row">
+      <button id="btnSaveSettings" class="primary">Uložiť</button>
+      <button id="btnCancelSettings">Zrušiť</button>
+    </div>
+  </section>
+
+  <form id="form" hidden autocomplete="off">
+    <label>Smer
+      <select id="fSmer">
+        <option value="doručený">doručený</option>
+        <option value="odoslaný">odoslaný</option>
+      </select>
+    </label>
+
+    <label>Emailová adresa <span class="req">*</span>
+      <input id="fEmail" required>
+    </label>
+
+    <label>Adresa (organizácia)
+      <input id="fAdresa">
+    </label>
+
+    <label>Predmet
+      <input id="fPredmet">
+    </label>
+
+    <label>Značka
+      <input id="fZnackaFilter" type="search" placeholder="Hľadať značku… (napr. AAK alebo audit)">
+    </label>
+    <select id="fZnacka" size="6"></select>
+    <div class="row small">
+      <span id="znackaInfo" class="hint"></span>
+      <button type="button" id="btnReloadZnacky" class="link" title="Načítať číselník znova">↻</button>
+    </div>
+
+    <label>Pridelené (e-mail)
+      <input id="fPridelene" type="email">
+    </label>
+
+    <label>Poznámka
+      <textarea id="fPoznamka" rows="2"></textarea>
+    </label>
+
+    <label class="check" id="emlWrap">
+      <input id="fEml" type="checkbox" checked> Priložiť e-mail ako .eml
+    </label>
+
+    <div class="row">
+      <button id="btnSubmit" type="submit" class="primary">Zaevidovať</button>
+    </div>
+  </form>
+
+  <section id="done" hidden>
+    <p class="big">Zaevidované ako <strong id="doneCislo"></strong></p>
+    <p><a id="doneLink" href="#" target="_blank" rel="noopener">Otvoriť záznam</a></p>
+  </section>
+
+  <footer class="hint">Testovacia verzia</footer>
+
+  <script src="taskpane.js"></script>
+</body>
+</html>
